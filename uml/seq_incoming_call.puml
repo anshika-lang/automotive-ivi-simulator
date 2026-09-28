@@ -1,0 +1,76 @@
+@startuml SequenceIncomingCallInterruption
+!theme plain
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Driver" as Driver
+participant "Steering Wheel / HMI" as HMI
+participant "TelephonyService\n(Call Manager)" as Telephony
+participant "AudioPolicyManager\n(CarAudioService)" as AudioPolicy
+participant "MediaPlaybackService\n(Audio Player)" as Media
+participant "NavigationService\n(Route Guidance)" as Nav
+participant "DisplayManager\n(Window Manager)" as Display
+
+== Initial State: Media Playing + Navigation Guidance Active ==
+Driver -> Media: Play Track ("CyberDrive")
+activate Media
+Media -> AudioPolicy: requestAudioFocus(STREAM_MEDIA, GAIN)
+AudioPolicy --> Media: AUDIOFOCUS_GAIN
+Media -> Media: state = PLAYING, volume = 1.0
+
+Nav -> Display: renderRoute(Map, CID=FULL_NAV)
+Display --> Driver: Show Route & Turn Arrow
+
+== Event 1: Incoming Phone Call Arrives ==
+[o-> Telephony: Cellular Network: Incoming Call ("Alice")
+activate Telephony
+Telephony -> Telephony: state = RINGING
+Telephony -> AudioPolicy: requestAudioFocus(STREAM_RING_TONE, GAIN_TRANSIENT)
+activate AudioPolicy
+
+note over AudioPolicy
+  Arbitration Matrix:
+  Priority(STREAM_RING_TONE=75) > Priority(STREAM_MEDIA=40)
+  Action: Push Ringtone to top of stack,
+  notify current holder of TRANSIENT LOSS.
+end note
+
+AudioPolicy -> Media: onAudioFocusChange(AUDIOFOCUS_LOSS_TRANSIENT)
+activate Media
+Media -> Media: auto_resume_pending = true
+Media -> Media: state = PAUSED_TRANSIENT_LOSS, volume = 0.0
+Media --> AudioPolicy: acknowledge
+deactivate Media
+
+AudioPolicy --> Telephony: AUDIOFOCUS_GAIN
+deactivate AudioPolicy
+
+Telephony -> Display: publish("telephony/call_incoming", caller="Alice")
+activate Display
+Display -> Display: layout = NAV_WITH_CALL_OVERLAY
+Display --> Driver: Show Ringing Dialog on CID & Cluster (Keep Nav Arrow Visible!)
+deactivate Display
+
+== Event 2: Driver Answers Call via Steering Wheel Controls (SWC) ==
+Driver -> HMI: Press Phone Green Button (SWC)
+HMI -> Telephony: acceptCall()
+Telephony -> Telephony: state = IN_CALL
+Telephony -> AudioPolicy: requestAudioFocus(STREAM_VOICE_CALL, GAIN_TRANSIENT_EXCLUSIVE)
+activate AudioPolicy
+AudioPolicy --> Telephony: AUDIOFOCUS_GAIN
+deactivate AudioPolicy
+
+Telephony -> Display: publish("telephony/call_connected")
+activate Display
+Display -> Display: layout = SPLIT_NAV_AND_CALL
+Display --> Driver: Display Split Screen: Navigation Map (Left) + Call Info (Right)
+deactivate Display
+
+note over Driver, Display
+  Driver talks hands-free via vehicle microphone and speakers.
+  Media remains safely paused.
+  Navigation guidance continues updating visibly.
+end note
+
+@enduml

@@ -1,0 +1,67 @@
+@startuml ComponentArchitecture
+!theme plain
+skinparam componentStyle uml2
+skinparam handwritten false
+skinparam monochrome false
+skinparam shadowing false
+skinparam packageStyle rectangle
+
+title In-Vehicle Infotainment (IVI) Service Interaction Architecture
+
+package "Audio Domain" {
+    component [Audio Policy & Focus Manager\n(CarAudioService)] as AudioPolicy
+    interface "IAudioFocus" as IAF
+    AudioPolicy - IAF
+}
+
+package "Connectivity & Telephony Domain" {
+    component [Telephony Service\n(Call Manager)] as Telephony
+    interface "ITelephony" as ITel
+    Telephony - ITel
+}
+
+package "Multimedia Domain" {
+    component [Media Playback Service\n(Audio Player)] as MediaPlayer
+    interface "IMediaControl" as IMedia
+    MediaPlayer - IMedia
+}
+
+package "Location & Navigation Domain" {
+    component [Navigation Service\n(Route Guidance)] as NavService
+    interface "INavigation" as INav
+    NavService - INav
+}
+
+package "HMI & Cockpit Domain" {
+    component [Display & HMI Manager\n(Window Arbitrator)] as DisplayMgr
+    component [Steering Wheel Controls / SWC] as SWC
+}
+
+package "Inter-Process Communication" {
+    [Vehicle Service Bus\n(SOME/IP / Android Binder IPC)] as SysBus
+}
+
+' Audio Focus requests
+Telephony ..> IAF : "request(STREAM_RING / STREAM_VOICE_CALL)"
+NavService ..> IAF : "request(STREAM_NAVIGATION, DUCK)"
+MediaPlayer ..> IAF : "request(STREAM_MEDIA, GAIN)"
+
+' Audio focus callbacks
+AudioPolicy ..> MediaPlayer : "onAudioFocusChange(LOSS_TRANSIENT / GAIN / DUCK)"
+AudioPolicy ..> NavService : "onAudioFocusChange(GAIN / LOSS)"
+AudioPolicy ..> Telephony : "onAudioFocusChange(GAIN)"
+
+' Service Bus publish / subscribe
+Telephony ..> SysBus : "publish(telephony/call_incoming, call_ended)"
+NavService ..> SysBus : "publish(nav/maneuver, prompt)"
+MediaPlayer ..> SysBus : "publish(media/state_changed)"
+
+SysBus ..> DisplayMgr : "subscribe(events)"
+SWC ..> Telephony : "Accept / Reject Call"
+SWC ..> MediaPlayer : "Play / Pause / Next"
+
+DisplayMgr --> [Center Information Display (CID)]
+DisplayMgr --> [Digital Instrument Cluster (DIC)]
+DisplayMgr --> [Head-Up Display (HUD)]
+
+@enduml

@@ -1,0 +1,64 @@
+@startuml SequenceCallEndAndMediaResume
+!theme plain
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Driver" as Driver
+participant "Steering Wheel / HMI" as HMI
+participant "TelephonyService\n(Call Manager)" as Telephony
+participant "AudioPolicyManager\n(CarAudioService)" as AudioPolicy
+participant "MediaPlaybackService\n(Audio Player)" as Media
+participant "DisplayManager\n(Window Manager)" as Display
+participant "Audio HAL / Speakers" as Speakers
+
+== Initial State: In-Call Ongoing, Media Paused with Auto-Resume Pending ==
+note over Media, Telephony
+  Focus Stack:
+    Top: TelephonyService (STREAM_VOICE_CALL)
+    Bottom: MediaPlaybackService (STREAM_MEDIA, auto_resume_pending=true)
+end note
+
+== Step 1: Call Termination Event ==
+Driver -> HMI: Press Phone Red Button (Hang Up)
+HMI -> Telephony: endCall()
+activate Telephony
+Telephony -> Telephony: state = IDLE
+Telephony -> AudioPolicy: abandonAudioFocus(service.telephony)
+activate AudioPolicy
+Telephony -> Display: publish("telephony/call_ended")
+deactivate Telephony
+
+== Step 2: Audio Focus Arbitration & Restoration ==
+note over AudioPolicy
+  Focus Stack Resolution:
+  1. Pop 'service.telephony' from stack.
+  2. Inspect next candidate: 'service.media_playback'
+  3. Grant permanent AUDIOFOCUS_GAIN to Media.
+end note
+
+AudioPolicy -> Media: onAudioFocusChange(AUDIOFOCUS_GAIN)
+activate Media
+deactivate AudioPolicy
+
+== Step 3: Media Evaluates Resume Intent ==
+alt auto_resume_pending == true AND previous_state == PAUSED_TRANSIENT_LOSS
+  Media -> Media: state = PLAYING
+  Media -> Media: auto_resume_pending = false
+  Media -> Media: volume = 0.0 -> ramp to 1.0 (smooth fade-in)
+  Media -> Speakers: Resume audio stream at saved position (e.g., 01:45)
+  Media -> Display: publish("media/state_changed", state=PLAYING)
+  Speakers --> Driver: Music smoothly fades back in!
+else auto_resume_pending == false (User paused manually prior to call)
+  Media -> Media: state remains PAUSED_BY_USER
+  note over Media: Do NOT play audio. Respect driver's manual pause!
+end
+deactivate Media
+
+== Step 4: Display View Restoration ==
+activate Display
+Display -> Display: layout = FULL_NAVIGATION
+Display --> Driver: Center screen transitions back to Full Map view
+deactivate Display
+
+@enduml

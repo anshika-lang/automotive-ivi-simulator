@@ -1,0 +1,141 @@
+@startuml ClassDiagram
+!theme plain
+skinparam classAttributeIconSize 0
+
+enum AudioStreamType {
+    STREAM_EMERGENCY = 100
+    STREAM_VOICE_CALL = 80
+    STREAM_RING_TONE = 75
+    STREAM_VOICE_ASSISTANT = 70
+    STREAM_NAVIGATION = 60
+    STREAM_MEDIA = 40
+    STREAM_NOTIFICATION = 30
+}
+
+enum FocusRequestType {
+    AUDIOFOCUS_GAIN
+    AUDIOFOCUS_GAIN_TRANSIENT
+    AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
+    AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE
+}
+
+enum FocusChangeType {
+    AUDIOFOCUS_GAIN
+    AUDIOFOCUS_LOSS
+    AUDIOFOCUS_LOSS_TRANSIENT
+    AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK
+}
+
+enum MediaState {
+    STOPPED
+    PLAYING
+    PAUSED_BY_USER
+    PAUSED_TRANSIENT_LOSS
+    DUCKED
+}
+
+enum CallState {
+    IDLE
+    RINGING
+    IN_CALL
+}
+
+enum CIDLayoutMode {
+    FULL_MEDIA
+    FULL_NAVIGATION
+    NAV_WITH_CALL_OVERLAY
+    SPLIT_NAV_AND_CALL
+}
+
+class AudioFocusEntry {
+    + client_id : String
+    + stream_type : AudioStreamType
+    + request_type : FocusRequestType
+    + listener : Callable
+    + current_volume : float
+}
+
+class AudioPolicyManager {
+    - _focus_stack : List<AudioFocusEntry>
+    - _duck_factor : float
+    + current_focus_holder : AudioFocusEntry
+    + request_audio_focus(client_id, stream_type, request_type, listener) : bool
+    + abandon_audio_focus(client_id) : void
+    + get_stack_summary() : List
+}
+
+class MediaPlaybackService {
+    + CLIENT_ID : String
+    + state : MediaState
+    + current_track : String
+    + playback_position_ms : int
+    + volume : float
+    + auto_resume_pending : bool
+    + user_play() : bool
+    + user_pause() : void
+    + on_audio_focus_change(focus_change : FocusChangeType) : void
+    + simulate_playback_progress(elapsed_ms : int) : void
+}
+
+class NavigationService {
+    + CLIENT_ID : String
+    + state : NavState
+    + destination : String
+    + current_instruction : String
+    + distance_remaining_m : int
+    + current_prompt_text : String
+    + start_guidance(destination : String) : void
+    + stop_guidance() : void
+    + update_maneuver(instruction : String, distance_m : int, trigger_audio : bool) : void
+    + trigger_voice_prompt(prompt_text : String) : bool
+    + finish_voice_prompt() : void
+    + on_audio_focus_change(focus_change : FocusChangeType) : void
+}
+
+class TelephonyService {
+    + CLIENT_ID : String
+    + state : CallState
+    + caller_id : String
+    + caller_name : String
+    + call_duration_s : int
+    + receive_incoming_call(caller_id : String, caller_name : String) : bool
+    + accept_call() : bool
+    + reject_call() : void
+    + end_call() : void
+    + on_audio_focus_change(focus_change : FocusChangeType) : void
+}
+
+class DisplayManager {
+    + cid_mode : CIDLayoutMode
+    + cluster_display : String
+    + hud_display : String
+    + call_overlay_visible : bool
+    + active_banner : String
+    + get_layout_state() : Dict
+}
+
+class SystemBus {
+    - _subscribers : Map
+    - _event_log : List
+    + subscribe(topic : String, callback : Callable) : void
+    + publish(topic : String, payload : Any) : void
+    + get_event_log() : List
+}
+
+AudioPolicyManager "1" o-- "*" AudioFocusEntry : manages stack
+AudioFocusEntry --> AudioStreamType
+AudioFocusEntry --> FocusRequestType
+MediaPlaybackService --> MediaState
+TelephonyService --> CallState
+DisplayManager --> CIDLayoutMode
+
+MediaPlaybackService ..> AudioPolicyManager : requests/abandons focus
+NavigationService ..> AudioPolicyManager : requests/abandons focus
+TelephonyService ..> AudioPolicyManager : requests/abandons focus
+
+MediaPlaybackService ..> SystemBus : publishes events
+NavigationService ..> SystemBus : publishes events
+TelephonyService ..> SystemBus : publishes events
+DisplayManager ..> SystemBus : subscribes to events
+
+@enduml

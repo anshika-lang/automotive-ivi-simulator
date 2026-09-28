@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automotive IVI Service Interaction Simulator</title>
+    <style>
+        :root {
+            --bg-dark: #0f141c;
+            --panel-bg: #1a2230;
+            --accent-blue: #00d2ff;
+            --accent-green: #00e676;
+            --accent-red: #ff3d71;
+            --accent-orange: #ffaa00;
+            --text-main: #f0f4f8;
+            --text-muted: #8a99ad;
+            --border-color: #2b394e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-height: 100vh;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            color: var(--accent-blue);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .badge {
+            background: rgba(0, 210, 255, 0.15);
+            color: var(--accent-blue);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            border: 1px solid var(--accent-blue);
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1000px) {
+            .grid-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--accent-orange);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Digital Cockpit Displays */
+        .cockpit-zone {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .cluster-hud-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            background: #121822;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px dashed #3a4b66;
+        }
+
+        .hud-card {
+            border-left: 4px solid var(--accent-blue);
+            padding-left: 10px;
+        }
+
+        .hud-title {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .hud-val {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #fff;
+            margin-top: 4px;
+        }
+
+        /* Center Information Display (CID) */
+        .cid-screen {
+            height: 280px;
+            background: #090d14;
+            border: 2px solid #32435b;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cid-nav-view {
+            flex: 1;
+            background: linear-gradient(135deg, #132438 0%, #0d1624 100%);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .cid-split-view {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            height: 100%;
+        }
+
+        .map-mock {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .route-step {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .turn-icon {
+            font-size: 2rem;
+            color: var(--accent-blue);
+        }
+
+        .call-banner-overlay {
+            position: absolute;
+            top: 10px;
+            left: 20px;
+            right: 20px;
+            background: rgba(22, 33, 49, 0.95);
+            border: 2px solid var(--accent-green);
+            box-shadow: 0 8px 30px rgba(0, 230, 118, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: pulse-border 1.5s infinite;
+        }
+
+        @keyframes pulse-border {
+            0% { border-color: var(--accent-green); }
+            50% { border-color: #ffffff; }
+            100% { border-color: var(--accent-green); }
+        }
+
+        .ringing-anim {
+            font-size: 1.5rem;
+            animation: shake 0.5s infinite;
+        }
+
+        @keyframes shake {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(15deg); }
+            50% { transform: rotate(-15deg); }
+            75% { transform: rotate(10deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        .call-active-box {
+            background: #172436;
+            border-left: 2px solid #334d70;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Controls Deck */
+        .controls-deck {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #253347;
+            color: #fff;
+            border: 1px solid #3f5573;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        button:hover {
+            background: #344863;
+            border-color: var(--accent-blue);
+        }
+
+        button.btn-green {
+            background: #123d24;
+            border-color: var(--accent-green);
+            color: #a3ffc7;
+        }
+        button.btn-green:hover {
+            background: #195230;
+        }
+
+        button.btn-red {
+            background: #42161f;
+            border-color: var(--accent-red);
+            color: #ff99ae;
+        }
+        button.btn-red:hover {
+            background: #5a1d2b;
+        }
+
+        /* Audio Focus Matrix & Meters */
+        .meters-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .meter-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.8rem;
+        }
+
+        .meter-bar-bg {
+            flex: 1;
+            height: 12px;
+            background: #101620;
+            border-radius: 6px;
+            margin: 0 10px;
+            overflow: hidden;
+        }
+
+        .meter-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00d2ff, #00e676);
+            width: 0%;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Event Log */
+        .event-log {
+            height: 200px;
+            background: #0a0e14;
+            border: 1px solid #202b3b;
+            border-radius: 6px;
+            padding: 8px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .log-entry {
+            line-height: 1.3;
+        }
+        .log-info { color: #8a99ad; }
+        .log-success { color: var(--accent-green); font-weight: bold; }
+        .log-warn { color: var(--accent-orange); }
+        .log-crit { color: var(--accent-red); font-weight: bold; }
+        .log-audio { color: var(--accent-blue); }
+
+        .status-pill {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+        .pill-play { background: #0b3b24; color: #43f59e; }
+        .pill-duck { background: #443405; color: #ffcc00; }
+        .pill-pause { background: #3d1b22; color: #ff7388; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>🚘 Automotive Service Interaction Model</h1>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+                AUTOSAR / Android Automotive OS Audio Focus Arbitration & Cockpit HMI Simulator
+            </div>
+        </div>
+        <div>
+            <span class="badge">Model-Driven SOA</span>
+            <span class="badge" style="border-color: var(--accent-green); color: var(--accent-green);">Interactive</span>
+        </div>
+    </header>
+
+    <div class="grid-container">
+        <!-- LEFT: Cockpit Virtual Instrument & Center Display -->
+        <div class="cockpit-zone">
+            <!-- Digital Instrument Cluster & HUD -->
+            <div class="cluster-hud-box">
+                <div class="hud-card">
+                    <div class="hud-title">Digital Instrument Cluster (DIC)</div>
+                    <div class="hud-val" id="cluster-text">82 km/h | ↗ Turn Right 800m</div>
+                </div>
+                <div class="hud-card" style="border-color: var(--accent-orange);">
+                    <div class="hud-title">Head-Up Display (HUD)</div>
+                    <div class="hud-val" id="hud-text">Speed: 82 | Next: Exit 42</div>
+                </div>
+            </div>
+
+            <!-- Center Information Display (CID) -->
+            <div class="cid-screen" id="cid-container">
+                <div class="cid-nav-view" id="cid-nav-pane">
+                    <div class="map-mock">
+                        <div style="font-size: 0.8rem; color: var(--accent-blue); letter-spacing: 1px;">ACTIVE ROUTE: MUNICH AIRPORT (T2)</div>
+                        <div class="route-step">
+                            <span class="turn-icon">↱</span>
+                            <div>
+                                <div id="cid-nav-instruction">Take Exit 42 toward Airport</div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);" id="cid-nav-distance">Distance: 800 meters</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mini Media Bar -->
+                    <div style="background: rgba(0,0,0,0.5); padding: 8px 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span id="media-state-pill" class="status-pill pill-pause">PAUSED</span>
+                            <span id="media-track-title" style="margin-left: 8px; font-size: 0.85rem; font-weight: 500;">Automotive Synthwave - CyberDrive</span>
+                        </div>
+                        <div id="media-progress-display" style="font-size: 0.8rem; color: var(--text-muted);">01:15 / 03:40</div>
+                    </div>
+                </div>
+
+                <!-- Split Call Screen Container (Hidden by default) -->
+                <div class="call-active-box" id="cid-call-pane" style="display: none;">
+                    <div style="font-size: 0.8rem; color: var(--accent-green); text-transform: uppercase;">In-Call Active</div>
+                    <div style="font-size: 1.3rem; font-weight: bold;" id="call-caller-name">Alice (Engineering Lead)</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);" id="call-timer">00:08</div>
+                    <div style="display: flex; gap: 8px; margin-top: 10px;">
+                        <button class="btn-red" onclick="endCall()">Hang Up (SWC Red)</button>
+                    </div>
+                </div>
+
+                <!-- Incoming Call Overlay Popup (Conditional) -->
+                <div class="call-banner-overlay" id="incoming-call-overlay" style="display: none;">
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <span class="ringing-anim">📞</span>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--accent-green); font-weight: bold;">INCOMING CALL INTERRUPTION</div>
+                            <div style="font-size: 1.1rem; font-weight: bold;" id="incoming-caller-title">Alice (Engineering Lead)</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">+49-170-1234567 • Cellular Hands-free</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-green" onclick="acceptCall()">Accept (SWC Green)</button>
+                        <button class="btn-red" onclick="rejectCall()">Decline</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audio Policy Status & Hardware Meters -->
+            <div class="panel">
+                <div class="panel-title">
+                    <span>🔊 Audio Focus Manager & DSP Output Levels</span>
+                    <span id="top-focus-badge" class="badge">Focus: NONE</span>
+                </div>
+                <div class="meters-container">
+                    <div class="meter-row">
+                        <span style="width: 140px;">Media Stream (P=40):</span>
+                        <div class="meter-bar-bg">
+                            <div class="meter-bar-fill" id="meter-media" style="width: 0%;"></div>
+                        </div>
+                        <span id="meter-media-val" style="width: 45px; text-align: right;">0%</span>
+                    </div>
+                    <div class="meter-row">
+                        <span style="width: 140px;">Nav Prompt (P=60):</span>
+                        <div class="meter-bar-bg">
+                            <div class="meter-bar-fill" id="meter-nav" style="width: 0%; background: var(--accent-orange);"></div>
+                        </div>
+                        <span id="meter-nav-val" style="width: 45px; text-align: right;">0%</span>
+                    </div>
+                    <div class="meter-row">
+                        <span style="width: 140px;">Telephony / Call (P=80):</span>
+                        <div class="meter-bar-bg">
+                            <div class="meter-bar-fill" id="meter-call" style="width: 0%; background: var(--accent-green);"></div>
+                        </div>
+                        <span id="meter-call-val" style="width: 45px; text-align: right;">0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Interactive Control Deck & Event Trace -->
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div class="panel controls-deck">
+                <div class="panel-title">🎛️ Simulation Stimuli & Triggers</div>
+
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">1. MULTIMEDIA CONTROLS</div>
+                    <div class="button-group">
+                        <button onclick="playMedia()">▶ Play Music</button>
+                        <button onclick="pauseMedia()">⏸ User Pause</button>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">2. NAVIGATION PROMPT (DUCKING TEST)</div>
+                    <div class="button-group">
+                        <button onclick="triggerNavVoicePrompt()">📢 Voice Prompt ("Turn Right in 200m")</button>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">3. TELEPHONY INTERRUPTION (KEY USE CASE)</div>
+                    <div class="button-group">
+                        <button class="btn-green" onclick="triggerIncomingCall()">📲 Trigger Incoming Call</button>
+                        <button class="btn-green" onclick="acceptCall()">📞 Accept Call</button>
+                        <button class="btn-red" onclick="endCall()">🛑 End / Hang Up Call</button>
+                    </div>
+                </div>
+
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">4. AUTOMATED END-TO-END SCENARIO</div>
+                    <div class="button-group">
+                        <button style="border-color: var(--accent-orange); color: var(--accent-orange);" onclick="runAutoScenario()">
+                            ⚡ Run Full Interruption & Auto-Resume Sequence
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service State Watcher -->
+            <div class="panel">
+                <div class="panel-title">📋 Active Service States</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.8rem;">
+                    <div>Media State: <strong id="val-media-state">STOPPED</strong></div>
+                    <div>Auto Resume Pending: <strong id="val-auto-resume" style="color: var(--accent-orange);">false</strong></div>
+                    <div>Call State: <strong id="val-call-state">IDLE</strong></div>
+                    <div>CID Layout: <strong id="val-display-mode">FULL_NAV</strong></div>
+                </div>
+            </div>
+
+            <!-- Live Event & Bus Log -->
+            <div class="panel">
+                <div class="panel-title">
+                    <span>📡 Real-Time IPC Service Bus Log</span>
+                    <button style="padding: 2px 6px; font-size: 0.7rem;" onclick="clearLog()">Clear</button>
+                </div>
+                <div class="event-log" id="event-log-container">
+                    <div class="log-entry log-info">[00:00:00.000] System initialized. Vehicle Bus online.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State Variables
+        let mediaState = "STOPPED"; // STOPPED, PLAYING, PAUSED_BY_USER, PAUSED_TRANSIENT, DUCKED
+        let mediaVolume = 0.0;
+        let autoResumePending = false;
+        
+        let callState = "IDLE"; // IDLE, RINGING, IN_CALL
+        let callDuration = 0;
+        let callTimerInterval = null;
+
+        let navState = "GUIDING_SILENT"; // GUIDING_SILENT, VOICE_PROMPT_ACTIVE
+        let navVolume = 0.0;
+
+        function log(msg, type = "info") {
+            const container = document.getElementById("event-log-container");
+            const time = new Date().toISOString().substring(11, 23);
+            const entry = document.createElement("div");
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${time}] ${msg}`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById("event-log-container").innerHTML = "";
+            log("Log cleared.", "info");
+        }
+
+        function updateUI() {
+            // Media UI
+            document.getElementById("val-media-state").textContent = mediaState;
+            document.getElementById("val-auto-resume").textContent = autoResumePending ? "TRUE (Armed)" : "false";
+            document.getElementById("val-auto-resume").style.color = autoResumePending ? "var(--accent-green)" : "var(--text-muted)";
+
+            const pill = document.getElementById("media-state-pill");
+            pill.className = "status-pill";
+            if (mediaState === "PLAYING") {
+                pill.classList.add("pill-play");
+                pill.textContent = "PLAYING";
+            } else if (mediaState === "DUCKED") {
+                pill.classList.add("pill-duck");
+                pill.textContent = "DUCKED (20%)";
+            } else {
+                pill.classList.add("pill-pause");
+                pill.textContent = mediaState;
+            }
+
+            // Call UI
+            document.getElementById("val-call-state").textContent = callState;
+            const overlay = document.getElementById("incoming-call-overlay");
+            const callPane = document.getElementById("cid-call-pane");
+            const navPane = document.getElementById("cid-nav-pane");
+
+            if (callState === "RINGING") {
+                overlay.style.display = "flex";
+                callPane.style.display = "none";
+                navPane.style.display = "flex";
+                document.getElementById("val-display-mode").textContent = "NAV_WITH_CALL_OVERLAY";
+            } else if (callState === "IN_CALL") {
+                overlay.style.display = "none";
+                callPane.style.display = "flex";
+                // Split layout
+                document.getElementById("cid-container").classList.add("cid-split-view");
+                document.getElementById("val-display-mode").textContent = "SPLIT_NAV_AND_CALL";
+            } else {
+                overlay.style.display = "none";
+                callPane.style.display = "none";
+                document.getElementById("cid-container").classList.remove("cid-split-view");
+                navPane.style.display = "flex";
+                document.getElementById("val-display-mode").textContent = "FULL_NAVIGATION";
+            }
+
+            // Audio Meters
+            document.getElementById("meter-media").style.width = (mediaVolume * 100) + "%";
+            document.getElementById("meter-media-val").textContent = Math.round(mediaVolume * 100) + "%";
+
+            document.getElementById("meter-nav").style.width = (navVolume * 100) + "%";
+            document.getElementById("meter-nav-val").textContent = Math.round(navVolume * 100) + "%";
+
+            let callVol = (callState === "RINGING" || callState === "IN_CALL") ? 1.0 : 0.0;
+            document.getElementById("meter-call").style.width = (callVol * 100) + "%";
+            document.getElementById("meter-call-val").textContent = Math.round(callVol * 100) + "%";
+
+            // Focus badge
+            const badge = document.getElementById("top-focus-badge");
+            if (callState === "IN_CALL") {
+                badge.textContent = "Focus: STREAM_VOICE_CALL (Exclusive)";
+                badge.style.borderColor = "var(--accent-green)";
+                badge.style.color = "var(--accent-green)";
+            } else if (callState === "RINGING") {
+                badge.textContent = "Focus: STREAM_RING_TONE (Transient)";
+                badge.style.borderColor = "var(--accent-orange)";
+                badge.style.color = "var(--accent-orange)";
+            } else if (navState === "VOICE_PROMPT_ACTIVE") {
+                badge.textContent = "Focus: STREAM_NAVIGATION (May Duck)";
+                badge.style.borderColor = "var(--accent-blue)";
+                badge.style.color = "var(--accent-blue)";
+            } else if (mediaState === "PLAYING" || mediaState === "DUCKED") {
+                badge.textContent = "Focus: STREAM_MEDIA";
+                badge.style.borderColor = "var(--accent-blue)";
+                badge.style.color = "var(--accent-blue)";
+            } else {
+                badge.textContent = "Focus: NONE";
+                badge.style.borderColor = "var(--border-color)";
+                badge.style.color = "var(--text-muted)";
+            }
+        }
+
+        // Actions
+        function playMedia() {
+            if (callState !== "IDLE") {
+                log("AudioPolicy: Play request denied! Active Call holds higher priority.", "warn");
+                return;
+            }
+            mediaState = "PLAYING";
+            mediaVolume = 1.0;
+            autoResumePending = false;
+            log("MediaService: user_play() -> AUDIOFOCUS_GAIN acquired. Volume: 100%", "audio");
+            updateUI();
+        }
+
+        function pauseMedia() {
+            mediaState = "PAUSED_BY_USER";
+            mediaVolume = 0.0;
+            autoResumePending = false;
+            log("MediaService: user_pause() -> AUDIOFOCUS abandoned. Auto-resume cleared.", "info");
+            updateUI();
+        }
+
+        function triggerNavVoicePrompt() {
+            if (navState === "VOICE_PROMPT_ACTIVE") return;
+            log("NavService: Voice prompt requested -> 'In 200 meters, take Exit 42'", "info");
+            navState = "VOICE_PROMPT_ACTIVE";
+            navVolume = 1.0;
+
+            if (mediaState === "PLAYING") {
+                mediaState = "DUCKED";
+                mediaVolume = 0.2;
+                log("AudioPolicy: Ducking STREAM_MEDIA to 20% for transient Nav Prompt.", "audio");
+            }
+
+            document.getElementById("hud-text").textContent = "Prompt: In 200m Take Exit 42";
+            updateUI();
+
+            setTimeout(() => {
+                navState = "GUIDING_SILENT";
+                navVolume = 0.0;
+                log("NavService: Voice prompt complete. Abandoning focus.", "info");
+                if (mediaState === "DUCKED") {
+                    mediaState = "PLAYING";
+                    mediaVolume = 1.0;
+                    log("AudioPolicy: Restoring STREAM_MEDIA volume to 100%.", "audio");
+                }
+                document.getElementById("hud-text").textContent = "Speed: 82 | Next: Exit 42";
+                updateUI();
+            }, 3000);
+        }
+
+        function triggerIncomingCall() {
+            if (callState !== "IDLE") return;
+            callState = "RINGING";
+            log("Telephony: Incoming call from Alice (Engineering Lead)!", "warn");
+            log("AudioPolicy: STREAM_RING_TONE requested AUDIOFOCUS_GAIN_TRANSIENT.", "warn");
+
+            if (mediaState === "PLAYING" || mediaState === "DUCKED") {
+                mediaState = "PAUSED_TRANSIENT";
+                mediaVolume = 0.0;
+                autoResumePending = true;
+                log(">>> INTERRUPT: Media paused transiently! auto_resume_pending = true <<<", "crit");
+            }
+
+            log("DisplayManager: Showing Incoming Call Banner on CID (preserving HUD turn prompt).", "info");
+            updateUI();
+        }
+
+        function acceptCall() {
+            if (callState !== "RINGING") return;
+            callState = "IN_CALL";
+            log("Telephony: Driver accepted call via SWC button. Focus upgraded to STREAM_VOICE_CALL (Exclusive).", "success");
+            log("DisplayManager: Screen layout switched to SPLIT_NAV_AND_CALL.", "info");
+
+            callDuration = 0;
+            if (callTimerInterval) clearInterval(callTimerInterval);
+            callTimerInterval = setInterval(() => {
+                callDuration++;
+                const mins = String(Math.floor(callDuration / 60)).padStart(2, '0');
+                const secs = String(callDuration % 60).padStart(2, '0');
+                document.getElementById("call-timer").textContent = `${mins}:${secs}`;
+            }, 1000);
+
+            updateUI();
+        }
+
+        function rejectCall() {
+            if (callState !== "RINGING") return;
+            log("Telephony: Driver rejected incoming call.", "info");
+            cleanupCall();
+        }
+
+        function endCall() {
+            if (callState === "IDLE") return;
+            log("Telephony: Call terminated (Hang Up). Abandoning STREAM_VOICE_CALL focus.", "info");
+            cleanupCall();
+        }
+
+        function cleanupCall() {
+            callState = "IDLE";
+            if (callTimerInterval) {
+                clearInterval(callTimerInterval);
+                callTimerInterval = null;
+            }
+            log("AudioPolicy: Telephony focus abandoned. Popping from stack.", "info");
+            log("DisplayManager: Screen layout restored to FULL_NAVIGATION.", "info");
+
+            // Evaluate automatic resume!
+            if (autoResumePending) {
+                log(">>> AUTOMATIC RESUME: Restoring previous audio focus to Media! <<<", "success");
+                mediaState = "PLAYING";
+                mediaVolume = 1.0;
+                autoResumePending = false;
+                log("MediaService: Resumed playback smoothly at previous track position.", "audio");
+            } else {
+                log("MediaService: No auto-resume was pending (Media was already stopped/paused).", "info");
+            }
+
+            updateUI();
+        }
+
+        function runAutoScenario() {
+            log("========== INITIATING END-TO-END AUTOMATED SCENARIO ==========", "success");
+            playMedia();
+
+            setTimeout(() => {
+                triggerNavVoicePrompt();
+            }, 1800);
+
+            setTimeout(() => {
+                triggerIncomingCall();
+            }, 5500);
+
+            setTimeout(() => {
+                acceptCall();
+            }, 8000);
+
+            setTimeout(() => {
+                log("NavService: Cluster maneuver update 'Keep Left in 150m' during phone call.", "info");
+                document.getElementById("cluster-text").textContent = "82 km/h | ↖ Keep Left 150m";
+            }, 11000);
+
+            setTimeout(() => {
+                endCall();
+                log("========== SCENARIO COMPLETE: VERIFIED RESUME & PERSISTENCE ==========", "success");
+            }, 14000);
+        }
+
+        // Initialize UI
+        updateUI();
+    </script>
+</body>
+</html>

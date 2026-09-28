@@ -1,0 +1,15 @@
+@startuml StateTelephony
+!theme plain
+title Telephony Service - State Machine
+
+[*] --> IDLE
+
+IDLE --> RINGING : incomingCallEvent(caller)\n/ reqFocus(STREAM_RING_TONE, TRANSIENT),\npublish(call_incoming)
+
+RINGING --> IN_CALL : user_acceptCall()\n/ reqFocus(STREAM_VOICE_CALL, EXCLUSIVE),\npublish(call_connected)
+
+RINGING --> IDLE : user_rejectCall() or remote_cancel()\n/ abandonFocus(),\npublish(call_rejected)
+
+IN_CALL --> IDLE : user_endCall() or remote_hangup()\n/ abandonFocus(),\npublish(call_ended)
+
+@enduml

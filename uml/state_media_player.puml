@@ -1,0 +1,27 @@
+@startuml StateMediaPlayer
+!theme plain
+title Media Playback Service - State Machine
+
+[*] --> STOPPED
+
+STOPPED --> PLAYING : user_play() [requestAudioFocus(GAIN) granted]\n/ volume=1.0, auto_resume=false
+
+PLAYING --> PAUSED_BY_USER : user_pause()\n/ abandonFocus(), auto_resume=false
+
+PAUSED_BY_USER --> PLAYING : user_play() [requestAudioFocus(GAIN) granted]\n/ volume=1.0
+
+PLAYING --> DUCKED : onAudioFocusChange(LOSS_TRANSIENT_CAN_DUCK)\n[Nav voice prompt active] / volume=0.2
+
+DUCKED --> PLAYING : onAudioFocusChange(GAIN)\n[Nav voice prompt finished] / volume=1.0
+
+PLAYING --> PAUSED_TRANSIENT_LOSS : onAudioFocusChange(LOSS_TRANSIENT)\n[Incoming call arrives] / volume=0.0, auto_resume=true
+
+DUCKED --> PAUSED_TRANSIENT_LOSS : onAudioFocusChange(LOSS_TRANSIENT)\n[Incoming call arrives] / volume=0.0, auto_resume=true
+
+PAUSED_TRANSIENT_LOSS --> PLAYING : onAudioFocusChange(GAIN)\n[Call ended AND auto_resume==true]\n/ volume ramp 0.0->1.0, auto_resume=false
+
+PAUSED_TRANSIENT_LOSS --> PAUSED_BY_USER : user_pause()\n/ auto_resume=false
+
+PAUSED_TRANSIENT_LOSS --> STOPPED : onAudioFocusChange(LOSS)\n[Another permanent media source starts]\n/ auto_resume=false
+
+@enduml

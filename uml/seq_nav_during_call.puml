@@ -1,0 +1,56 @@
+@startuml SequenceNavPromptDuringCall
+!theme plain
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Driver" as Driver
+participant "NavigationService\n(Route Guidance)" as Nav
+participant "AudioPolicyManager\n(Focus Manager)" as AudioPolicy
+participant "TelephonyService\n(In-Call)" as Telephony
+participant "DisplayManager\n(Cockpit HMI)" as Display
+participant "Audio Hardware / HAL\n(Multi-Zone DSP)" as DSP
+
+== Initial State: Active Phone Call & Active Route Guidance ==
+note over Telephony, AudioPolicy
+  Telephony holds active focus (STREAM_VOICE_CALL, Priority 80).
+  Display layout is SPLIT_NAV_AND_CALL.
+end note
+
+== Maneuver Triggered: Approaching Highway Exit (200m) ==
+Nav -> Nav: distance = 200m
+Nav -> Display: publish("nav/state_changed", instruction="Exit Right", dist=200)
+activate Display
+Display -> Display: updateClusterAndHUD("Arrow Right, 200m")
+Display --> Driver: Visual maneuver prompt visible in HUD / Cluster
+deactivate Display
+
+Nav -> AudioPolicy: requestAudioFocus(STREAM_NAVIGATION=60, GAIN_TRANSIENT_MAY_DUCK)
+activate AudioPolicy
+
+alt Policy A: Dual Audio Zone / Cluster Speaker Routing (Modern Cockpit)
+  note over AudioPolicy, DSP
+    Audio Policy recognizes active Voice Call.
+    Routes Navigation voice prompt to Driver Headrest / Instrument Cluster speaker.
+    Call speech continues on Cabin speakers without interruption.
+  end note
+  AudioPolicy -> DSP: Route STREAM_NAVIGATION -> Driver Zone
+  AudioPolicy --> Nav: AUDIOFOCUS_GAIN
+  Nav -> DSP: Output: "In 200 meters, take Exit 42"
+  DSP --> Driver: Hear Nav prompt in driver headrest
+else Policy B: Call Audio Slight Ducking
+  note over AudioPolicy
+    If single audio zone: Phone Call volume momentarily ducked to 80%,
+    Voice Prompt mixed at front speakers.
+  end note
+  AudioPolicy -> Telephony: onAudioFocusChange(DUCK_CALL_20%)
+  AudioPolicy --> Nav: AUDIOFOCUS_GAIN
+  Nav -> DSP: Output: "In 200 meters, take Exit 42"
+end
+
+Nav -> AudioPolicy: abandonAudioFocus(STREAM_NAVIGATION)
+deactivate AudioPolicy
+AudioPolicy -> DSP: Restore standard routing / Call volume 100%
+Nav -> Nav: state = GUIDING_SILENT
+
+@enduml

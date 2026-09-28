@@ -1,0 +1,36 @@
+@startuml StateAudioPolicy
+!theme plain
+title Audio Policy & Focus Arbitration - State Machine
+
+[*] --> NO_ACTIVE_AUDIO
+
+state NO_ACTIVE_AUDIO {
+}
+
+state MEDIA_PLAYBACK {
+    state FULL_VOLUME
+    state DUCKED_FOR_NAV
+    
+    [*] --> FULL_VOLUME
+    FULL_VOLUME --> DUCKED_FOR_NAV : req(STREAM_NAV, MAY_DUCK) [push Nav to stack]
+    DUCKED_FOR_NAV --> FULL_VOLUME : abandon(STREAM_NAV) [pop Nav from stack]
+}
+
+state CALL_SESSION {
+    state CALL_RINGING
+    state CALL_CONNECTED
+    
+    [*] --> CALL_RINGING
+    CALL_RINGING --> CALL_CONNECTED : acceptCall() [req(STREAM_VOICE_CALL, EXCLUSIVE)]
+}
+
+NO_ACTIVE_AUDIO --> MEDIA_PLAYBACK : req(STREAM_MEDIA, GAIN)
+MEDIA_PLAYBACK --> NO_ACTIVE_AUDIO : abandon(STREAM_MEDIA)
+
+MEDIA_PLAYBACK --> CALL_SESSION : req(STREAM_RING_TONE, TRANSIENT)\n[Preempt media, store media in stack]
+
+CALL_SESSION --> MEDIA_PLAYBACK : abandon(STREAM_VOICE_CALL / RING_TONE)\n[Media on stack -> Restore GAIN to media]
+
+CALL_SESSION --> NO_ACTIVE_AUDIO : abandon(STREAM_VOICE_CALL)\n[Stack empty]
+
+@enduml
